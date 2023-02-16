@@ -27,7 +27,7 @@ module.exports = (ctx) => {
                 }
                 return ctx;
             },
-            name: 'OneManager 图床',
+            name: 'OneManager-php-Orainge 图床',
             config: config
         })
     }
