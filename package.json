@@ -1,20 +1,18 @@
 {
-  "name": "picgo-plugin-onemanager-图床",
+  "name": "picgo-plugin-onemanager-orainge",
   "version": "1.0.0",
-  "description": "onemanager图床",
+  "description": "onemanager uploader by orainge",
   "main": "./index.js",
   "publishConfig": {
     "access": "public"
   },
   "homepage": "",
-
   "keywords": [
     "picgo",
     "picgo-gui-plugin",
     "picgo-plugin",
-	"onemanager"
+    "onemanager"
   ],
-  "author": "laoxinH",
+  "author": "Orainge",
   "license": "MIT"
-
 }

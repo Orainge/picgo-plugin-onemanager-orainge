@@ -3,9 +3,9 @@
 let crypto = require('crypto');
 module.exports = (ctx) => {
     const register = () => {
-        ctx.helper.uploader.register('onemanager', {
+        ctx.helper.uploader.register('onemanager_orainge', {
             async handle(ctx) {
-                let userConfig = ctx.getConfig('picBed.onemanager');
+                let userConfig = ctx.getConfig('picBed.onemanager_orainge');
                 if (!userConfig) {
                     throw new Error('Can\'t find uploader config')
                 }
@@ -13,7 +13,7 @@ module.exports = (ctx) => {
                 if (!url) {
                     ctx.emit('notification', {
                         title: '上传失败',
-                        body: "请填写onemanager的图床url"
+                        body: "请填写 OneManager 的图床 URL"
                     });
                 }
                 if (url.charAt(url.length - 1) != "/") {
@@ -22,18 +22,18 @@ module.exports = (ctx) => {
                 let imgList = ctx.output
                 for (let i in imgList) {
                     const uploadInfo = await getUploadInfo(ctx, url, imgList[i]);
-                    if (imgList[i].url) continue;
+                    if (uploadInfo == null || imgList[i].url) continue;
                     await upload(ctx, uploadInfo.uploadUrl, imgList[i], uploadInfo.imgUrl);
                 }
                 return ctx;
             },
-            name: 'onemanager图床',
+            name: 'OneManager 图床',
             config: config
         })
     }
     return {
         register,
-        uploader: 'onemanager',
+        uploader: 'onemanager_orainge',
     }
 }
 const upload = async (ctx, url, img, imgUrl) => {
@@ -44,7 +44,7 @@ const upload = async (ctx, url, img, imgUrl) => {
         "content-length": totalsize,
         "Content-Range": 'bytes ' + asize + '-' + bsize + '/' + totalsize/*,"contentType":"base64Encoded"*/
     }
-    const upOpts = getOpts(customHeader, img.buffer, url, "PUT");
+    const upOpts = getOpts(ctx, customHeader, img.buffer, url, "PUT");
     upOpts.body = img.buffer;
     try {
         let resp = await ctx.request(upOpts);
@@ -76,13 +76,20 @@ const getUploadInfo = async (ctx, url, img) => {
         filelastModified: Date.now(),
         filemd5: md5
     }
-    let getUrlOpts = getOpts(customHeader, getUpload, url + "?action=upbigfile", "POST", true);
+    let getUrlOpts = getOpts(ctx, customHeader, getUpload, url + "?action=upbigfile", "POST", true);
 
     let resp;
     try {
         resp = await ctx.request(getUrlOpts);
     } catch (e) {
-        if (JSON.stringify(e).indexOf("exists") != -1) {
+        if(e.statusCode == '403') {
+            // 需要token
+            ctx.emit('notification', {
+                title: '上传失败',
+                body: 'Token 不正确，请检查设置',
+            });
+            return null;
+        } else if (JSON.stringify(e).indexOf("exists") != -1) {
             ctx.emit('notification', {
                 title: '图片已存在',
                 body: img.fileName + " 已存在!"
@@ -100,6 +107,7 @@ const getUploadInfo = async (ctx, url, img) => {
                 });
                 ctx.log.warn("上传失败", JSON.stringify(e));
             }
+            return null;
         }
     }
     resp = JSON.parse(resp);
@@ -107,7 +115,7 @@ const getUploadInfo = async (ctx, url, img) => {
     resp.imgUrl = url + getUpload.upbigfilename;
     return resp;
 }
-const getOpts = (customHeader = {}, body, url = "", method = "POST", toStrBody = false) => {
+const getOpts = (ctx, customHeader = {}, body, url = "", method = "POST", toStrBody = false) => {
     if (toStrBody) {
         try {
             let stringBody = "";
@@ -126,9 +134,15 @@ const getOpts = (customHeader = {}, body, url = "", method = "POST", toStrBody =
         }
     }
     let headers = {
-        contentType: 'multipart/form-data',
+        contentType: 'text/html;charset=UTF-8',
+        // contentType: 'multipart/form-data',
         'User-Agent': 'PicGo'
     }
+    let token = ctx.getConfig('picBed.onemanager_orainge').token;
+    if(token){
+        headers.auth=token;
+    }
+
     if (customHeader) {
         headers = Object.assign(headers, customHeader)
     }
@@ -142,7 +156,7 @@ const getOpts = (customHeader = {}, body, url = "", method = "POST", toStrBody =
 }
 
 const config = ctx => {
-    let userConfig = ctx.getConfig('picBed.onemanager')
+    let userConfig = ctx.getConfig('picBed.onemanager_orainge')
     if (!userConfig) {
         userConfig = {}
     }
@@ -152,8 +166,16 @@ const config = ctx => {
             type: 'input',
             default: userConfig.url,
             required: true,
-            message: '示例：https://pan.laoxin.top/od1/ykfile/ 其中ykfile为图床文件夹',
-            alias: 'onemanager图床文件夹url'
+            message: 'https://XXX.com/{盘符地址}/{图床文件夹地址}/',
+            alias: '图床文件夹地址'
+        },
+        {
+            name: 'token',
+            type: 'input',
+            default: userConfig.token,
+            required: false,
+            message: '请输入 token (与服务器 guestuploadtoken 一致)',
+            alias: 'Token'
         }
     ]
 }
